@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="PixelGuard"/>
+<title>PixelGuard</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icons/icon-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #1a1a1a;
+  --border: #2a2a2a;
+  --accent: #00ff88;
+  --accent-dim: rgba(0,255,136,0.12);
+  --accent-mid: rgba(0,255,136,0.4);
+  --danger: #ff3b3b;
+  --danger-dim: rgba(255,59,59,0.15);
+  --amber: #ffaa00;
+  --amber-dim: rgba(255,170,0,0.12);
+  --text: #e8e8e8;
+  --text-muted: #666;
+  --text-dim: #444;
+  --mono: 'Share Tech Mono', monospace;
+  --sans: 'Rajdhani', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
+
+#app {
+  display: flex; flex-direction: column; height: 100vh; height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* HEADER */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  background: var(--surface);
+}
+.logo { font-family: var(--mono); font-size: 15px; color: var(--accent); letter-spacing: 2px; }
+.logo span { color: var(--text-muted); }
+#status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+  padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--border); color: var(--text-muted);
+  transition: all 0.3s;
+}
+#status-pill.active { border-color: var(--accent-mid); color: var(--accent); background: var(--accent-dim); }
+#status-pill.error { border-color: var(--danger); color: var(--danger); background: var(--danger-dim); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.dot.pulse { animation: blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* VIDEO */
+#video-section { flex-shrink: 0; position: relative; background: #000; }
+video { width: 100%; display: block; max-height: 38vh; object-fit: cover; }
+#canvas-hidden { display: none; }
+
+#overlay-ui {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+}
+.corner {
+  position: absolute; width: 18px; height: 18px;
+  border-color: var(--accent); border-style: solid; opacity: 0.7;
+}
+.corner.tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+.corner.tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+.corner.bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+.corner.br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+
+#motion-flash {
+  position: absolute; inset: 0;
+  border: 3px solid var(--danger);
+  opacity: 0; transition: opacity 0.1s;
+  pointer-events: none;
+}
+#motion-flash.show { opacity: 1; }
+
+#rec-badge {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  display: none; align-items: center; gap: 5px;
+  background: rgba(0,0,0,0.7); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--danger); letter-spacing: 1px;
+}
+#rec-badge.show { display: flex; }
+
+#no-cam {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  background: var(--surface); color: var(--text-muted);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
+}
+#no-cam svg { opacity: 0.3; }
+
+/* STATS ROW */
+#stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+  background: var(--surface);
+}
+.stat-cell {
+  padding: 8px 4px; text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-v { font-family: var(--mono); font-size: 16px; color: var(--accent); }
+.stat-l { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+
+/* MOTION BAR */
+#motion-section {
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+.motion-row { display: flex; align-items: center; gap: 10px; }
+.motion-label { font-family: var(--mono); font-size: 11px; color: var(--text-muted); min-width: 64px; }
+.bar-track { flex: 1; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; transition: width 0.08s, background 0.2s; }
+.sens-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+input[type=range] {
+  flex: 1; -webkit-appearance: none; height: 3px;
+  background: var(--surface2); border-radius: 2px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--accent); cursor: pointer;
+}
+.sens-val { font-family: var(--mono); font-size: 12px; color: var(--accent); min-width: 16px; }
+
+/* SCROLL AREA */
+#scroll-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+/* CONTROLS */
+#controls {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+.btn {
+  padding: 11px 0; border-radius: 6px; font-family: var(--sans);
+  font-size: 15px; font-weight: 600; letter-spacing: 1px;
+  cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text-muted);
+  transition: all 0.15s; text-transform: uppercase;
+}
+.btn:active { transform: scale(0.97); }
+.btn.primary { border-color: var(--accent-mid); color: var(--accent); background: var(--accent-dim); }
+.btn.danger-btn { border-color: var(--danger); color: var(--danger); background: var(--danger-dim); }
+.btn.snap { border-color: #555; color: var(--text); }
+
+/* LOG */
+#log-section { flex: 1; padding: 12px 16px; overflow-y: auto; }
+.log-header { font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.log-entry {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 5px 0; border-bottom: 1px solid #1a1a1a;
+  font-family: var(--mono); font-size: 12px;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-time { color: var(--text-dim); min-width: 58px; font-size: 11px; }
+.log-msg { flex: 1; }
+.log-msg.motion { color: var(--danger); }
+.log-msg.ok { color: var(--accent); }
+.log-msg.info { color: var(--amber); }
+.log-empty { font-family: var(--mono); font-size: 12px; color: var(--text-dim); text-align: center; padding: 20px 0; }
+
+/* NOTIF BANNER */
+#notif-banner {
+  position: fixed; bottom: 20px; left: 16px; right: 16px;
+  background: var(--danger); color: #fff;
+  font-family: var(--mono); font-size: 13px; letter-spacing: 1px;
+  padding: 10px 16px; border-radius: 6px;
+  display: none; align-items: center; gap: 10px;
+  z-index: 999; animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+#notif-banner.show { display: flex; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="header">
+    <div class="logo">PIXEL<span>GUARD</span></div>
+    <div id="status-pill">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">INATTIVA</span>
+    </div>
+  </div>
+
+  <div id="video-section">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas-hidden"></canvas>
+    <div id="overlay-ui">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+      <div id="motion-flash"></div>
+      <div id="rec-badge"><div class="dot pulse"></div>LIVE</div>
+    </div>
+    <div id="no-cam">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2">
+        <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+      </svg>
+      PREMI AVVIA
+    </div>
+  </div>
+
+  <div id="stats">
+    <div class="stat-cell"><div class="stat-v" id="s-events">0</div><div class="stat-l">Movimenti</div></div>
+    <div class="stat-cell"><div class="stat-v" id="s-fps">--</div><div class="stat-l">FPS</div></div>
+    <div class="stat-cell"><div class="stat-v" id="s-uptime">00:00</div><div class="stat-l">Uptime</div></div>
+    <div class="stat-cell"><div class="stat-v" id="s-snaps">0</div><div class="stat-l">Snapshot</div></div>
+  </div>
+
+  <div id="motion-section">
+    <div class="motion-row">
+      <span class="motion-label">MOVIMENTO</span>
+      <div class="bar-track"><div class="bar-fill" id="bar-fill"></div></div>
+      <span class="sens-val" id="bar-pct">0%</span>
+    </div>
+    <div class="sens-row">
+      <span class="motion-label">SENSIBILITÀ</span>
+      <input type="range" id="sensitivity" min="1" max="10" value="4" step="1"/>
+      <span class="sens-val" id="sens-disp">4</span>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="btn primary" id="btn-toggle" onclick="toggleCam()">AVVIA</button>
+    <button class="btn snap" onclick="takeSnap()">SNAPSHOT</button>
+  </div>
+
+  <div id="log-section">
+    <div class="log-header">// log eventi</div>
+    <div id="log-body"><div class="log-empty">— nessun evento —</div></div>
+  </div>
+
+</div>
+
+<div id="notif-banner">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+  <span id="notif-text">MOVIMENTO RILEVATO</span>
+</div>
+
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+const video = document.getElementById('video');
+const hidden = document.getElementById('canvas-hidden');
+const barFill = document.getElementById('bar-fill');
+const barPct = document.getElementById('bar-pct');
+const sensSlider = document.getElementById('sensitivity');
+const sensDisp = document.getElementById('sens-disp');
+const logBody = document.getElementById('log-body');
+const noCam = document.getElementById('no-cam');
+const recBadge = document.getElementById('rec-badge');
+const motionFlash = document.getElementById('motion-flash');
+const notifBanner = document.getElementById('notif-banner');
+const notifText = document.getElementById('notif-text');
+const btnToggle = document.getElementById('btn-toggle');
+
+let stream = null, active = false, raf = null;
+let prevData = null, cooldown = 0, evtCount = 0, snapCount = 0;
+let startTime = null, uptimer = null;
+let lastFpsTs = 0, fpsFrames = 0;
+let notifTimer = null, flashTimer = null;
+
+sensSlider.addEventListener('input', () => sensDisp.textContent = sensSlider.value);
+
+function setStatus(state) {
+  const pill = document.getElementById('status-pill');
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  pill.className = 'status-pill';
+  if (state === 'active') { pill.classList.add('active'); dot.classList.add('pulse'); txt.textContent = 'ATTIVA'; }
+  else if (state === 'error') { pill.classList.add('error'); dot.classList.remove('pulse'); txt.textContent = 'ERRORE'; }
+  else { dot.classList.remove('pulse'); txt.textContent = 'INATTIVA'; }
+  // re-apply id
+  pill.id = 'status-pill';
+}
+
+function addLog(msg, type) {
+  const now = new Date();
+  const t = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if (logBody.querySelector('.log-empty')) logBody.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = `<span class="log-time">${t}</span><span class="log-msg ${type}">${msg}</span>`;
+  logBody.insertBefore(el, logBody.firstChild);
+  if (logBody.children.length > 30) logBody.removeChild(logBody.lastChild);
+}
+
+function updateUptime() {
+  if (!startTime) return;
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  const m = Math.floor(s / 60), sec = s % 60;
+  document.getElementById('s-uptime').textContent = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function showNotif(msg) {
+  notifText.textContent = msg;
+  notifBanner.classList.add('show');
+  if (notifTimer) clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => notifBanner.classList.remove('show'), 3000);
+  try { new Notification('PixelGuard', { body: msg }); } catch(e){}
+}
+
+async function toggleCam() {
+  if (!active) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width:{ideal:1280}, height:{ideal:720} },
+        audio: false
+      });
+      video.srcObject = stream;
+      noCam.style.display = 'none';
+      recBadge.classList.add('show');
+      active = true;
+      btnToggle.textContent = 'FERMA';
+      btnToggle.classList.remove('primary');
+      btnToggle.classList.add('danger-btn');
+      setStatus('active');
+      startTime = Date.now();
+      uptimer = setInterval(updateUptime, 1000);
+      addLog('Camera avviata', 'ok');
+      if (Notification.permission === 'default') Notification.requestPermission();
+      requestAnimationFrame(loop);
+    } catch(e) {
+      setStatus('error');
+      addLog('Errore accesso camera: ' + (e.message || 'permesso negato'), 'motion');
+    }
+  } else {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+    active = false; prevData = null;
+    noCam.style.display = 'flex';
+    recBadge.classList.remove('show');
+    btnToggle.textContent = 'AVVIA';
+    btnToggle.classList.add('primary');
+    btnToggle.classList.remove('danger-btn');
+    setStatus('inactive');
+    clearInterval(uptimer);
+    barFill.style.width = '0%'; barPct.textContent = '0%';
+    document.getElementById('s-fps').textContent = '--';
+    addLog('Camera fermata', 'info');
+    if (raf) cancelAnimationFrame(raf);
+  }
+}
+
+function loop(ts) {
+  if (!active) return;
+  raf = requestAnimationFrame(loop);
+
+  fpsFrames++;
+  if (ts - lastFpsTs > 1000) {
+    const f = Math.round(fpsFrames * 1000 / (ts - lastFpsTs));
+    document.getElementById('s-fps').textContent = f;
+    fpsFrames = 0; lastFpsTs = ts;
+  }
+
+  if (video.readyState < 2) return;
+
+  const W = 160, H = 90;
+  hidden.width = W; hidden.height = H;
+  const ctx = hidden.getContext('2d');
+  ctx.drawImage(video, 0, 0, W, H);
+  const data = ctx.getImageData(0, 0, W, H).data;
+
+  if (prevData) {
+    let diff = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const dr = Math.abs(data[i] - prevData[i]);
+      const dg = Math.abs(data[i+1] - prevData[i+1]);
+      const db = Math.abs(data[i+2] - prevData[i+2]);
+      if (dr + dg + db > 35) diff++;
+    }
+
+    const pct = diff / (W * H);
+    const threshold = (11 - parseInt(sensSlider.value)) * 0.015;
+    const barW = Math.min(Math.round(pct * 800), 100);
+    const isMotion = pct > threshold;
+
+    barFill.style.width = barW + '%';
+    barFill.style.background = isMotion ? '#ff3b3b' : '#00ff88';
+    barPct.textContent = barW + '%';
+
+    if (isMotion && cooldown <= 0) {
+      evtCount++;
+      document.getElementById('s-events').textContent = evtCount;
+      const pctStr = Math.round(pct * 100);
+      addLog(`Movimento rilevato — ${pctStr}% pixel`, 'motion');
+      showNotif('Movimento rilevato!');
+      motionFlash.classList.add('show');
+      if (flashTimer) clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => motionFlash.classList.remove('show'), 400);
+      cooldown = 25;
+    }
+    if (cooldown > 0) cooldown--;
+  }
+
+  prevData = new Uint8ClampedArray(data);
+}
+
+function takeSnap() {
+  if (!active || video.readyState < 2) { addLog('Nessun video per snapshot', 'info'); return; }
+  const c = document.createElement('canvas');
+  c.width = video.videoWidth || 640; c.height = video.videoHeight || 360;
+  c.getContext('2d').drawImage(video, 0, 0);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  a.download = `pixelguard_${ts}.jpg`;
+  a.href = c.toDataURL('image/jpeg', 0.92);
+  a.click();
+  snapCount++;
+  document.getElementById('s-snaps').textContent = snapCount;
+  addLog('Snapshot salvato', 'ok');
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && active) addLog('App in background — camera continua', 'info');
+});
+</script>
+</body>
+</html>
