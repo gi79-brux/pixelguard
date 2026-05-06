@@ -273,6 +273,22 @@ const notifBanner = document.getElementById('notif-banner');
 const notifText = document.getElementById('notif-text');
 const btnToggle = document.getElementById('btn-toggle');
 
+const TG_TOKEN = '8650492804:AAFFYwoQuAaa_MjKERTUsKFkuxaZ1oV0OSs';
+const TG_CHAT  = '6181485';
+let tgCooldown = 0;
+
+async function sendTelegram(msg) {
+  if (tgCooldown > 0) return;
+  tgCooldown = 150;
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: TG_CHAT, text: msg, parse_mode: 'HTML' })
+    });
+  } catch(e) { console.warn('Telegram error', e); }
+}
+
 let stream = null, active = false, raf = null;
 let prevData = null, cooldown = 0, evtCount = 0, snapCount = 0;
 let startTime = null, uptimer = null;
@@ -337,6 +353,7 @@ async function toggleCam() {
       startTime = Date.now();
       uptimer = setInterval(updateUptime, 1000);
       addLog('Camera avviata', 'ok');
+      sendTelegram('✅ <b>PixelGuard attiva</b>\nCamera avviata e in sorveglianza.');
       if (Notification.permission === 'default') Notification.requestPermission();
       requestAnimationFrame(loop);
     } catch(e) {
@@ -357,6 +374,7 @@ async function toggleCam() {
     barFill.style.width = '0%'; barPct.textContent = '0%';
     document.getElementById('s-fps').textContent = '--';
     addLog('Camera fermata', 'info');
+    sendTelegram('⏹️ <b>PixelGuard disattivata</b>\nSorveglianza interrotta.');
     if (raf) cancelAnimationFrame(raf);
   }
 }
@@ -404,12 +422,15 @@ function loop(ts) {
       const pctStr = Math.round(pct * 100);
       addLog(`Movimento rilevato — ${pctStr}% pixel`, 'motion');
       showNotif('Movimento rilevato!');
+      const now = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      sendTelegram(`🚨 <b>Movimento rilevato!</b>\n🕐 ${now}\n📊 ${pctStr}% pixel cambiati`);
       motionFlash.classList.add('show');
       if (flashTimer) clearTimeout(flashTimer);
       flashTimer = setTimeout(() => motionFlash.classList.remove('show'), 400);
       cooldown = 25;
     }
     if (cooldown > 0) cooldown--;
+    if (tgCooldown > 0) tgCooldown--;
   }
 
   prevData = new Uint8ClampedArray(data);
